@@ -5,7 +5,7 @@ async function promptUsername(
   opts: vscode.WorkspaceConfiguration
 ): Promise<string> {
   const username = await vscode.window.showInputBox({
-    value: "",
+    value: opts.get("user") || "",
     placeHolder: "Ellx username",
   });
 
@@ -40,10 +40,11 @@ async function checkIfShouldNavigate(
 
 export function activate(context: vscode.ExtensionContext) {
   let disposable = vscode.commands.registerCommand("ellx.run", async () => {
-    const root = vscode.workspace.workspaceFolders![0].uri.toString();
-    if (root === undefined) {
+    if (!vscode.workspace.workspaceFolders) {
       vscode.window.showErrorMessage("Ellx requires root folder to be opened");
+      return;
     }
+    const root = vscode.workspace.workspaceFolders[0].uri.toString();
 
     const opts = vscode.workspace.getConfiguration("ellx");
 
@@ -73,7 +74,14 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.workspace.onDidSaveTextDocument((doc: vscode.TextDocument) => {
       const path = doc.uri.toString().slice(root.length);
       for (const client of server.clients) {
-        client.send(JSON.stringify({ path, action: "save" }));
+        client.send(JSON.stringify({ body: doc.getText(), path, action: "save" }));
+      }
+    });
+    vscode.workspace.onDidChangeTextDocument((e: vscode.TextDocumentChangeEvent) => {
+      const path = e.document.uri.toString().slice(root.length);
+      for (const client of server.clients) {
+        // TODO: use updated range
+        client.send(JSON.stringify({ body: e.document.getText(), path, action: "update" }));
       }
     });
   });
