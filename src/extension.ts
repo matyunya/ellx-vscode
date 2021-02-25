@@ -4,24 +4,19 @@ import runServer, { FSOptions } from "./server";
 async function promptUsername(
   opts: vscode.WorkspaceConfiguration
 ): Promise<string> {
-  const existing = String(opts.get("user"));
-  if (!existing) {
-    const username = await vscode.window.showInputBox({
-      value: "",
-      placeHolder: "Ellx username",
-    });
+  const username = await vscode.window.showInputBox({
+    value: "",
+    placeHolder: "Ellx username",
+  });
 
-    opts.update("user", username, true);
+  opts.update("user", username, true);
 
-    return username || "";
-  } else {
-    return existing;
-  }
+  return username || "";
 }
 
 async function checkIfShouldNavigate(
   opts: vscode.WorkspaceConfiguration,
-	identity: string,
+  identity: string
 ): Promise<void> {
   const shouldNavigate = await vscode.window.showInformationMessage(
     "Ellx server started successfully.",
@@ -36,8 +31,10 @@ async function checkIfShouldNavigate(
   if (shouldNavigate) {
     const clientUrl: vscode.Uri = vscode.Uri.parse(opts.get("clientUrl") || "");
 
-		// TODO: check if index.md is absent, redirect to any file?
-    vscode.env.openExternal(vscode.Uri.joinPath(clientUrl, "external", identity, "index.md"));
+    // TODO: check if index.md is absent, redirect to any file?
+    vscode.env.openExternal(
+      vscode.Uri.joinPath(clientUrl, "external", identity, "index.md")
+    );
   }
 }
 
@@ -62,7 +59,7 @@ export function activate(context: vscode.ExtensionContext) {
     const identity: string = opts.get("identity") || "localhost~" + port;
 
     const options: FSOptions = {
-      root: root.startsWith('file://') ? root.slice('file://'.length) : root, // trim schema
+      root: root.startsWith("file://") ? root.slice("file://".length) : root, // trim schema
       user,
       identity,
       trust: opts.get("trust") || "",
