@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import WebSocket from "ws";
 import runServer, { FSOptions } from "./server";
 
 async function promptUsername(
@@ -38,6 +39,14 @@ async function checkIfShouldNavigate(
   }
 }
 
+type EllxAction = "save" | "update" | "open";
+
+function notify(server: WebSocket.Server, action: EllxAction, payload: any) {
+  for (const client of server.clients) {
+    client.send(JSON.stringify({ action, ...payload }));
+  }
+}
+
 export function activate(context: vscode.ExtensionContext) {
   let disposable = vscode.commands.registerCommand("ellx.run", async () => {
     if (!vscode.workspace.workspaceFolders) {
@@ -73,29 +82,18 @@ export function activate(context: vscode.ExtensionContext) {
 
     vscode.workspace.onDidSaveTextDocument((doc: vscode.TextDocument) => {
       const path = doc.uri.toString().slice(root.length);
-      for (const client of server.clients) {
-        client.send(
-          JSON.stringify({ body: doc.getText(), path, action: "save" })
-        );
-      }
+      notify(server, "save", { body: doc.getText(), path, action: "save" });
     });
+
     vscode.workspace.onDidChangeTextDocument(
       (e: vscode.TextDocumentChangeEvent) => {
         const path = e.document.uri.toString().slice(root.length);
         if (path.endsWith(".js")) return; // we don't want to rebundle every stroke atm
 
-        for (const client of server.clients) {
-          // TODO: use updated range
-          client.send(
-            JSON.stringify({
-              body: e.document.getText(),
-              path,
-              action: "update",
-            })
-          );
-        }
+        notify(server, "update", { body: e.document.getText(), path });
       }
     );
+
     vscode.window.onDidChangeActiveTextEditor((e: vscode.TextEditor | any) => {
       if (e === undefined) return;
 
@@ -107,9 +105,7 @@ export function activate(context: vscode.ExtensionContext) {
         return;
 
       const path = doc.uri.toString().slice(root.length);
-      for (const client of server.clients) {
-        client.send(JSON.stringify({ path, action: "open" }));
-      }
+      notify(server, "open", { path });
     });
   });
   context.subscriptions.push(disposable);
