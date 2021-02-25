@@ -74,14 +74,41 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.workspace.onDidSaveTextDocument((doc: vscode.TextDocument) => {
       const path = doc.uri.toString().slice(root.length);
       for (const client of server.clients) {
-        client.send(JSON.stringify({ body: doc.getText(), path, action: "save" }));
+        client.send(
+          JSON.stringify({ body: doc.getText(), path, action: "save" })
+        );
       }
     });
-    vscode.workspace.onDidChangeTextDocument((e: vscode.TextDocumentChangeEvent) => {
-      const path = e.document.uri.toString().slice(root.length);
+    vscode.workspace.onDidChangeTextDocument(
+      (e: vscode.TextDocumentChangeEvent) => {
+        const path = e.document.uri.toString().slice(root.length);
+        if (path.endsWith(".js")) return; // we don't want to rebundle every stroke atm
+
+        for (const client of server.clients) {
+          // TODO: use updated range
+          client.send(
+            JSON.stringify({
+              body: e.document.getText(),
+              path,
+              action: "update",
+            })
+          );
+        }
+      }
+    );
+    vscode.window.onDidChangeActiveTextEditor((e: vscode.TextEditor | any) => {
+      if (e === undefined) return;
+
+      const doc = e.document;
+      if (
+        !doc.uri.toString().startsWith("file://") ||
+        !doc.uri.toString().match(/\.(md|ellx|html)$/)
+      )
+        return;
+
+      const path = doc.uri.toString().slice(root.length);
       for (const client of server.clients) {
-        // TODO: use updated range
-        client.send(JSON.stringify({ body: e.document.getText(), path, action: "update" }));
+        client.send(JSON.stringify({ path, action: "open" }));
       }
     });
   });
