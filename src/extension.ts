@@ -71,9 +71,9 @@ export function activate(context: vscode.ExtensionContext) {
     await checkIfShouldNavigate(opts, identity);
 
     vscode.workspace.onDidSaveTextDocument((doc: vscode.TextDocument) => {
-      const fileChanged = doc.uri.toString().slice(root.length);
+      const path = doc.uri.toString().slice(root.length);
       for (const client of server.clients) {
-        client.send(fileChanged);
+        client.send(JSON.stringify({ path, action: "save" }));
       }
     });
   });
