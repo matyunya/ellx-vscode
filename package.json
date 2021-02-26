@@ -14,6 +14,15 @@
 	],
 	"main": "./out/extension.js",
 	"contributes": {
+		"menus": {
+			"commandPalette": [{
+				"command": "ellx.run",
+				"when": "!ellx:running"
+			}, {
+				"command": "ellx.stop",
+				"when": "ellx:running"
+			}]
+		},
 		"configuration": {
 			"title": "Ellx",
 			"properties": {
@@ -48,6 +57,10 @@
 			{
 				"command": "ellx.run",
 				"title": "Ellx: start"
+			},
+			{
+				"command": "ellx.stop",
+				"title": "Ellx: stop"
 			}
 		]
 	},
