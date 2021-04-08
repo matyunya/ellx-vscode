@@ -7,16 +7,14 @@ import {
   WorkspaceConfiguration,
   Uri,
   env,
-  commands
+  commands,
 } from "vscode";
 
 import runServer, { FSOptions } from "../server";
 
 import WebSocket from "ws";
 
-async function promptUsername(
-  opts: WorkspaceConfiguration
-): Promise<string> {
+async function promptUsername(opts: WorkspaceConfiguration): Promise<string> {
   const username = await window.showInputBox({
     value: opts.get("user") || "",
     placeHolder: "Ellx username",
@@ -27,9 +25,18 @@ async function promptUsername(
   return username || "";
 }
 
+export function open() {
+  const opts = workspace.getConfiguration("ellx");
+  const clientUrl: Uri = Uri.parse(opts.get("clientUrl") || "");
+
+  // TODO: check if index.md is absent, create empty default?
+  return env.openExternal(
+    Uri.joinPath(clientUrl, "external", getIdentity(opts), "index.md")
+  );
+}
+
 async function checkIfShouldNavigate(
-  opts: WorkspaceConfiguration,
-  identity: string
+  opts: WorkspaceConfiguration
 ): Promise<void> {
   const shouldNavigate = await window.showInformationMessage(
     "Ellx server started successfully.",
@@ -41,14 +48,7 @@ async function checkIfShouldNavigate(
     return;
   }
 
-  if (shouldNavigate) {
-    const clientUrl: Uri = Uri.parse(opts.get("clientUrl") || "");
-
-    // TODO: check if index.md is absent, create empty default?
-    env.openExternal(
-      Uri.joinPath(clientUrl, "external", identity, "index.md")
-    );
-  }
+  if (shouldNavigate) open();
 }
 
 type EllxAction = "save" | "update" | "open";
@@ -72,6 +72,11 @@ export async function stop() {
   });
 }
 
+const getPort = (opts: WorkspaceConfiguration) =>
+  parseInt(opts.get("port") || "3002", 10);
+const getIdentity = (opts: WorkspaceConfiguration): string =>
+  opts.get("identity") || "localhost~" + getPort(opts);
+
 export async function run() {
   if (!workspace.workspaceFolders) {
     window.showErrorMessage("Ellx requires root folder to be opened");
@@ -87,36 +92,31 @@ export async function run() {
     return;
   }
 
-  const port = parseInt(opts.get("port") || "", 10);
-  const identity: string = opts.get("identity") || "localhost~" + port;
-
   const options: FSOptions = {
     root: root.startsWith("file://") ? root.slice("file://".length) : root, // trim schema
     user,
-    identity,
+    identity: getIdentity(opts),
     trust: opts.get("trust") || "",
-    port,
+    port: getPort(opts),
   };
 
   server = await runServer(options);
 
   commands.executeCommand("setContext", "ellx:running", true);
 
-  await checkIfShouldNavigate(opts, identity);
+  await checkIfShouldNavigate(opts);
 
   workspace.onDidSaveTextDocument((doc: TextDocument) => {
     const path = doc.uri.toString().slice(root.length);
     notify("save", { body: doc.getText(), path, action: "save" });
   });
 
-  workspace.onDidChangeTextDocument(
-    (e: TextDocumentChangeEvent) => {
-      const path = e.document.uri.toString().slice(root.length);
-      if (path.endsWith(".js")) return; // we don't want to rebundle every stroke atm
+  workspace.onDidChangeTextDocument((e: TextDocumentChangeEvent) => {
+    const path = e.document.uri.toString().slice(root.length);
+    if (path.endsWith(".js")) return; // we don't want to rebundle every stroke atm
 
-      notify("update", { body: e.document.getText(), path });
-    }
-  );
+    notify("update", { body: e.document.getText(), path });
+  });
 
   window.onDidChangeActiveTextEditor((e: TextEditor | any) => {
     if (e === undefined) return;

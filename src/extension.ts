@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { run, stop } from "./commands/run";
+import { run, stop, open } from "./commands";
 
 const item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right);
 
@@ -8,16 +8,18 @@ item.text = "∴Ellx∴";
 type CommandDefinition = [string, (...args: any[]) => any];
 
 const commands: CommandDefinition[] = [
-  ["ellx.run", run],
-  ["ellx.stop", deactivate]
+  ["ellx.run", () => {
+    run();
+    item.show();
+  }],
+  ["ellx.stop", deactivate],
+  ["ellx.open", open],
 ];
 
 export function activate(context: vscode.ExtensionContext) {
   for (const [name, cb] of commands) {
     context.subscriptions.push(vscode.commands.registerCommand(name, cb));
   }
-
-  item.show();
 }
 
 export function deactivate() {

@@ -3,6 +3,10 @@
 	"displayName": "ellx",
 	"description": "",
 	"version": "0.0.1",
+	"publisher": "matyunya",
+	"repository": {
+		"url": "https://github.com/matyunya/ellx-vscode"
+	},
 	"engines": {
 		"vscode": "^1.53.0"
 	},
@@ -20,6 +24,9 @@
 				"when": "!ellx:running"
 			}, {
 				"command": "ellx.stop",
+				"when": "ellx:running"
+			}, {
+				"command": "ellx.open",
 				"when": "ellx:running"
 			}]
 		},
@@ -61,6 +68,10 @@
 			{
 				"command": "ellx.stop",
 				"title": "Ellx: stop"
+			},
+			{
+				"command": "ellx.open",
+				"title": "Ellx: open in browser"
 			}
 		]
 	},
