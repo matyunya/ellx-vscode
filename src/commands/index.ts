@@ -74,6 +74,7 @@ export async function stop() {
 
 const getPort = (opts: WorkspaceConfiguration) =>
   parseInt(opts.get("port") || "3002", 10);
+
 const getIdentity = (opts: WorkspaceConfiguration): string =>
   opts.get("identity") || "localhost~" + getPort(opts);
 
@@ -108,12 +109,14 @@ export async function run() {
 
   workspace.onDidSaveTextDocument((doc: TextDocument) => {
     const path = doc.uri.toString().slice(root.length);
+    if (path.endsWith(".ellx")) return;
+
     notify("save", { body: doc.getText(), path, action: "save" });
   });
 
   workspace.onDidChangeTextDocument((e: TextDocumentChangeEvent) => {
     const path = e.document.uri.toString().slice(root.length);
-    if (path.endsWith(".js")) return; // we don't want to rebundle every stroke atm
+    if (path.endsWith(".js") || path.endsWith(".ellx")) return; // we don't want to rebundle every stroke atm
 
     notify("update", { body: e.document.getText(), path });
   });
