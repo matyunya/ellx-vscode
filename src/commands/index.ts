@@ -75,8 +75,15 @@ export async function stop() {
 const getPort = (opts: WorkspaceConfiguration) =>
   parseInt(opts.get("port") || "3002", 10);
 
-const getIdentity = (opts: WorkspaceConfiguration): string =>
-  opts.get("identity") || "localhost~" + getPort(opts);
+const getIdentity = (opts: WorkspaceConfiguration): string => {
+  if (opts.get("identity")) return String(opts.get("identity"));
+
+  if (!workspace.workspaceFolders) {
+    return "untitled-project";
+  }
+
+  return workspace.workspaceFolders[0].name.toString();
+}
 
 export async function run() {
   if (!workspace.workspaceFolders) {
@@ -116,7 +123,7 @@ export async function run() {
 
   workspace.onDidChangeTextDocument((e: TextDocumentChangeEvent) => {
     const path = e.document.uri.toString().slice(root.length);
-    if (path.endsWith(".js") || path.endsWith(".ellx")) return; // we don't want to rebundle every stroke atm
+    if (!path.endsWith(".html") && !path.endsWith(".md")) return; // we don't want to rebundle every stroke atm
 
     notify("update", { body: e.document.getText(), path });
   });

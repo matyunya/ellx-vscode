@@ -68,7 +68,6 @@ const serve = (root: string) => async (req: FSRequest, res: FSResponse) => {
   if (Object.keys(req.body).length) console.log(req.body);
 
   console.log({ root, filePath });
-
   if (!filePath.startsWith(root)) {
     return res.error('Unauthorized', 401);
   }
