@@ -7,11 +7,20 @@ item.text = "∴Ellx∴";
 
 type CommandDefinition = [string, (...args: any[]) => any];
 
+let unsubs: vscode.Disposable[] = [];
+
 const commands: CommandDefinition[] = [
-  ["ellx.run", () => {
-    run();
-    item.show();
-  }],
+  [
+    "ellx.run",
+    async () => {
+      try {
+        unsubs = await run();
+      } catch (e) {
+        console.error("Couldn't launch server", e);
+      }
+      item.show();
+    },
+  ],
   ["ellx.stop", deactivate],
   ["ellx.open", open],
 ];
@@ -22,8 +31,9 @@ export function activate(context: vscode.ExtensionContext) {
   }
 }
 
-export function deactivate() {
+export async function deactivate() {
   vscode.commands.executeCommand("setContext", "ellx:running", false);
-  stop();
+  unsubs.forEach((u) => u.dispose());
+  await stop();
   item.hide();
 }

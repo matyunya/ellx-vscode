@@ -8,6 +8,7 @@ import {
   Uri,
   env,
   commands,
+  Disposable,
 } from "vscode";
 
 import runServer, { FSOptions } from "../server";
@@ -31,7 +32,7 @@ export function open() {
 
   // TODO: check if index.md is absent, create empty default?
   return env.openExternal(
-    Uri.joinPath(clientUrl, "external", getIdentity(opts), "index.md")
+    Uri.joinPath(clientUrl, "external", getIdentity(), "index.md")
   );
 }
 
@@ -62,6 +63,18 @@ export function notify(action: EllxAction, payload: any) {
 }
 
 export async function stop() {
+  console.log("Trying to stop server");
+  server.clients.forEach((socket) => {
+    socket.close();
+
+    process.nextTick(() => {
+      if ([socket.OPEN, socket.CLOSING].includes(socket.readyState)) {
+        // Socket still hangs, hard close
+        socket.terminate();
+      }
+    });
+  });
+
   return server.close((err) => {
     if (err) {
       window.showErrorMessage("Error stopping Ellx server");
@@ -69,26 +82,26 @@ export async function stop() {
     } else {
       window.showInformationMessage("Ellx server stopped successfully");
     }
+
+    console.log(err || "Stopped successfully");
   });
 }
 
 const getPort = (opts: WorkspaceConfiguration) =>
   parseInt(opts.get("port") || "3002", 10);
 
-const getIdentity = (opts: WorkspaceConfiguration): string => {
-  if (opts.get("identity")) return String(opts.get("identity"));
-
+const getIdentity = (): string => {
   if (!workspace.workspaceFolders) {
     return "untitled-project";
   }
 
   return workspace.workspaceFolders[0].name.toString();
-}
+};
 
-export async function run() {
+export async function run(): Promise<Disposable[]> {
   if (!workspace.workspaceFolders) {
     window.showErrorMessage("Ellx requires root folder to be opened");
-    return;
+    return [];
   }
   const root = workspace.workspaceFolders[0].uri.toString();
 
@@ -97,48 +110,56 @@ export async function run() {
   const user = await promptUsername(opts);
   if (!user) {
     window.showErrorMessage("Ellx extensions requires username to run");
-    return;
+    return [];
   }
 
   const options: FSOptions = {
     root: root.startsWith("file://") ? root.slice("file://".length) : root, // trim schema
     user,
-    identity: getIdentity(opts),
+    identity: getIdentity(),
     trust: opts.get("trust") || "",
     port: getPort(opts),
   };
 
-  server = await runServer(options);
+  try {
+    server = await runServer(options);
+  } catch (e) {
+    window.showErrorMessage("Error running Ellx server", e);
+    return [];
+  }
+
+  console.log({ server }, 'RNNING');
 
   commands.executeCommand("setContext", "ellx:running", true);
 
   await checkIfShouldNavigate(opts);
 
-  workspace.onDidSaveTextDocument((doc: TextDocument) => {
-    const path = doc.uri.toString().slice(root.length);
-    if (path.endsWith(".ellx")) return;
+  return [
+    workspace.onDidSaveTextDocument((doc: TextDocument) => {
+      const path = doc.uri.toString().slice(root.length);
+      if (path.endsWith(".ellx")) return;
 
-    notify("save", { body: doc.getText(), path, action: "save" });
-  });
+      notify("save", { body: doc.getText(), path, action: "save" });
+    }),
+    workspace.onDidChangeTextDocument((e: TextDocumentChangeEvent) => {
+      const path = e.document.uri.toString().slice(root.length);
+      if (!path.endsWith(".html") && !path.endsWith(".md")) return; // we don't want to rebundle every stroke atm
 
-  workspace.onDidChangeTextDocument((e: TextDocumentChangeEvent) => {
-    const path = e.document.uri.toString().slice(root.length);
-    if (!path.endsWith(".html") && !path.endsWith(".md")) return; // we don't want to rebundle every stroke atm
+      notify("update", { body: e.document.getText(), path });
+    }),
 
-    notify("update", { body: e.document.getText(), path });
-  });
+    window.onDidChangeActiveTextEditor((e: TextEditor | any) => {
+      if (e === undefined) return;
 
-  window.onDidChangeActiveTextEditor((e: TextEditor | any) => {
-    if (e === undefined) return;
+      const doc = e.document;
+      if (
+        !doc.uri.toString().startsWith("file://") ||
+        !doc.uri.toString().match(/\.(md|ellx|html)$/)
+      )
+        return;
 
-    const doc = e.document;
-    if (
-      !doc.uri.toString().startsWith("file://") ||
-      !doc.uri.toString().match(/\.(md|ellx|html)$/)
-    )
-      return;
-
-    const path = doc.uri.toString().slice(root.length);
-    notify("open", { path });
-  });
+      const path = doc.uri.toString().slice(root.length);
+      notify("open", { path });
+    }),
+  ];
 }

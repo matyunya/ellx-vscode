@@ -2,7 +2,7 @@
 	"name": "ellx",
 	"displayName": "ellx",
 	"description": "",
-	"version": "0.0.1",
+	"version": "0.0.3",
 	"publisher": "matyunya",
 	"repository": {
 		"url": "https://github.com/matyunya/ellx-vscode"
@@ -42,11 +42,6 @@
 					"type": "string",
 					"default": "https://api.ellx.io/certificate",
 					"description": "Ellx certificate issuing endpoint"
-				},
-				"ellx.identity": {
-					"type": "string",
-					"default": "",
-					"description": "Ellx file server identity (should match project's name to enable authentication)"
 				},
 				"ellx.port": {
 					"type": "number",
